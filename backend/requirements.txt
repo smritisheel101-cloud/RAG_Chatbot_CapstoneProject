@@ -1,0 +1,36 @@
+fastapi
+uvicorn
+streamlit
+requests
+
+# LangChain
+langchain
+langchain-core
+langchain-community
+langchain-text-splitters
+
+# Vector DB
+chromadb
+faiss-cpu
+
+# AWS Bedrock
+langchain-aws
+boto3
+
+# Reranker
+langchain-cohere
+cohere
+
+# PDF Processing
+pypdf
+pdfplumber
+unstructured
+
+# Utilities
+tiktoken
+pandas
+python-dotenv
+
+# Optional (for evaluation)
+ragas
+datasets
