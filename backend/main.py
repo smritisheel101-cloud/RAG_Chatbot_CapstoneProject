@@ -1,100 +1,75 @@
-# from fastapi import FastAPI
-# from pydantic import BaseModel
-# import uvicorn
-# import threading
+import uvicorn
+import os
+from fastapi import FastAPI
+from pydantic import BaseModel
+from langchain_core.messages import AIMessage
 
-# # import functions from your rag pipeline file
-# from rag_pipeline import (
-#     build_vector_db,
-#     generate_text_summaries,
-#     get_vector_store,
-#     get_reranker,
-#     create_rag_agent
-# )
 
-# app = FastAPI()
+# import functions from your rag pipeline file
+from rag_pipeline import (
+    build_vector_db,
+    generate_text_summaries,
+    get_vector_store,
+    get_reranker,
+    create_rag_agent
+)
 
-# rag_agent = None
+app = FastAPI()
+rag_agent = None
 
-# # ==========================
-# # REQUEST MODEL
-# # ==========================
+class QueryRequest(BaseModel):
+    question: str
 
-# class QueryRequest(BaseModel):
-#     question: str
+@app.on_event("startup")
+def startup_event():
+  
+    global rag_agent
+    print("Starting RAG pipeline...")
 
-# # ==========================
-# # STARTUP EVENT
-# # ==========================
+    #print("Loaded Cohere key:", os.getenv("COHERE_API_KEY"))
 
-# @app.on_event("startup")
-# def startup_event():
-#     # threading.Thread(target=init_rag_pipeline).start()
-#     global rag_agent
-#     print("Starting RAG pipeline...")
+    text_chunks, tables = build_vector_db()
+    text_summaries, table_summaries = generate_text_summaries(
+        text_chunks, tables, summarize_texts=False
+    )
+    retriever, vector_store = get_vector_store(
+        text_chunks, tables, text_summaries, table_summaries
+    )
+    compression_retriever = get_reranker(retriever)
+    rag_agent = create_rag_agent(vector_store, compression_retriever)
 
-#     # 1. Build vector DB
-#     text_chunks, tables = build_vector_db()
+    print("RAG system ready")
 
-#     # 2. Generate summaries
-#     text_summaries, table_summaries = generate_text_summaries(
-#     text_chunks,
-#     tables,
-#     summarize_texts=False
-#     )
+@app.get("/")
+def home():
+    return {"message": "Dell Laptop RAG Assistant Running"}
 
-#     # 3. Create retriever
-#     retriever, vector_store = get_vector_store(
-#     text_chunks,
-#     tables,
-#     text_summaries,
-#     table_summaries
-#     )
+@app.post("/ask")
+def ask(request: QueryRequest):
+    global rag_agent
+    if rag_agent is None:
+        return {"error": "RAG agent not initialized"}
 
-#     # 4. Apply reranker
-#     compression_retriever = get_reranker(retriever)
+    try:
+        question = request.question
+        # Chat models require messages format
+        response = rag_agent.invoke({
+            "messages": [
+                {"role": "user", "content": question}
+            ]
+        })
 
-#     # 5. Create RAG agent
-#     rag_agent = create_rag_agent(vector_store, compression_retriever)
+        #preparing output message to print only AI MEssasge content 
+        # like pretty printing only the answer without all the metadata
+        for msg in reversed(response["messages"]):
+            if isinstance(msg, AIMessage):
+                ai_message = msg.content
+                break
+        return {"question": question, "answer": ai_message}
+     #   return {"question": question, "answer": str(response)}
+    except Exception as e:
+        print("Error in RAG agent:", e)
+        return {"error": str(e)}
 
-#     print("RAG system ready")
-
-# # ==========================
-# # ROOT ENDPOINT
-# # ==========================
-
-# @app.get("/")
-# def home():
-#     return {"message": "Dell Laptop RAG Assistant Running"}
-
-# # ==========================
-# # CHAT ENDPOINT
-# # ==========================
-
-# # @app.post("/ask")   # <-- match frontend
-# # def ask(request: QueryRequest):
-# #     global rag_agent
-
-# #     if rag_agent is None:
-# #         return {"error": "RAG agent not initialized"}
-
-# #     question = request.question
-
-# #     # Most agents expect {"input": question}
-# #     response = rag_agent.invoke({"input": question})
-
-# #     return {
-# #         "question": question,
-# #         "answer": str(response)
-# #     }
-# @app.post("/ask")
-# def ask(request: QueryRequest):
-#     global rag_agent
-
-#     if rag_agent is None:
-#         return {"error": "RAG agent not initialized"}
-
-#     try:
-#         question = request.question
-#         # Use messages format
-#         response = rag_agent.invoke({
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=8000)
