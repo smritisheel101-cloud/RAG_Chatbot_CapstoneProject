@@ -51,7 +51,9 @@ Create a `.env` file in the root directory with:
 ```
 AWS_ACCESS_KEY_ID=your_aws_access_key
 AWS_SECRET_ACCESS_KEY=your_aws_secret_key
+AWS_DEFAULT_REGION=ap-south-1
 COHERE_API_KEY=your_cohere_api_key
+PDF_FOLDER=pdfs 
 ```
 
 5. Place PDF documents in the `pdfs/` folder
